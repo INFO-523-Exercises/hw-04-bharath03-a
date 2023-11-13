@@ -25,10 +25,36 @@ if (!require(pacman))
 pacman::p_load(tidymodels,
                tidyverse,
                ranger,
+               dlookr,
                randomForest,
+               formattable,
                glmnet,
                gridExtra)
 
 # Global ggplot theme
 theme_set(theme_bw() + theme(legend.position = "top"))
+```
+
+## Tidy Tuesday Dataset
+
+I have selected the [`Numbats in Australia`](https://github.com/rfordatascience/tidytuesday/tree/master/data/2023/2023-03-07#numbats-in-australia) Dataset from TidyTuesday, where i will be looking for answers or some patterns by considering the below question.
+
+**How do environmental factors and temporal patterns influence the sightings of the species *`Myrmecobius fasciatus`* and its subspecies *`Myrmecobius fasciatus rufus`* in Dryandra Woodland?**
+
+```{r nombats_dataset, message=FALSE}
+numbats <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-03-07/numbats.csv')
+
+# converting the data to tibble
+numbats <- as_tibble(numbats)
+
+numbats |>
+  diagnose() |>
+  formattable()
+```
+
+Out the presented variables we can see that we are having around `805` records in total for a total of `16` columns. Out of those columns like `prcp`, `tmax` and `tmin` seems to be non-existent as around 93% of their data is missing and we won't using those as our features considering the scope of this assignment. There are also other features which are having missing values but are having around 31% missing data which can be dealt with.
+
+```{r linear_fit_plot, message=FALSE}
+# plotting data with a linear fit
+
 ```
