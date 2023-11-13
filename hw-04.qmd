@@ -1,0 +1,34 @@
+---
+title: "Regression in R"
+description: "Basic Concepts Regression Techniques"
+author: "Bharath Velamala"
+format: 
+    html:
+      theme: yeti
+editor: visual
+toc: true
+code-overflow: wrap
+code-annotations: hover
+execute: 
+  warning: false
+---
+
+## Install packages
+
+Installing the packages used.
+
+```{r r_packages, message = FALSE, output=FALSE}
+# Required packages
+if (!require(pacman))
+  install.packages("pacman")
+
+pacman::p_load(tidymodels,
+               tidyverse,
+               ranger,
+               randomForest,
+               glmnet,
+               gridExtra)
+
+# Global ggplot theme
+theme_set(theme_bw() + theme(legend.position = "top"))
+```
