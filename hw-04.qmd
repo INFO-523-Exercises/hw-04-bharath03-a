@@ -36,7 +36,7 @@ pacman::p_load(tidymodels,
 
 # Global ggplot theme
 # setting theme for ggplot2
-ggplot2::theme_set(ggplot2::theme_minimal(base_size = 16, base_family = "sans"))
+ggplot2::theme_set(ggplot2::theme_minimal(base_size = 15, base_family = "sans"))
 
 # setting width of code output
 options(width = 65)
@@ -54,68 +54,49 @@ knitr::opts_chunk$set(
 
 ## Tidy Tuesday Dataset
 
-I have selected the [`Numbats in Australia`](https://github.com/rfordatascience/tidytuesday/tree/master/data/2023/2023-03-07#numbats-in-australia) Dataset from TidyTuesday, where i will be looking for answers or some patterns by considering the below question.
+I have selected the data [Big Stock Prices](https://github.com/rfordatascience/tidytuesday/tree/master/data/2023/2023-02-07) from TidyTuesday which was sourced from Yahoo Finance via [Kaggle](https://www.kaggle.com/datasets/evangower/big-tech-stock-prices). This dataset consists of the daily stock prices and volume of 14 different tech companies, including Apple (AAPL), Amazon (AMZN), Alphabet (GOOGL), and Meta Platforms (META) and more. I will be looking for answers or some patterns by considering the below question.
 
-**How do environmental factors and temporal patterns influence the sightings of the species *`Myrmecobius fasciatus`* and its subspecies *`Myrmecobius fasciatus rufus`* in Dryandra Woodland?**
+**How do daily opening prices, trading volumes, and historical trends influence the adjusted closing prices of stocks?**
 
 ```{r nombats_dataset, message=FALSE}
-numbats <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-03-07/numbats.csv')
+big_stocks <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-02-07/big_tech_stock_prices.csv')
 
 # converting the data to tibble
-numbats <- as_tibble(numbats)
+big_stocks <- as_tibble(big_stocks)
 
-numbats |>
+big_stocks |>
   diagnose() |>
   formattable()
 ```
 
-Out the presented variables we can see that we are having around `805` records in total for a total of `16` columns. Out of those columns like `prcp`, `tmax` and `tmin` seems to be non-existent as around 93% of their data is missing and we won't using those as our features considering the scope of this assignment. There are also other features which are having missing values but are having around 31% missing data which can be dealt with.
+By the above diagnosis, we can interpret that there are no missing values in the data. First we will generate a linear fit to the data by assuming `X` as `open` and `Y` as `adj_close`.
 
-Filtering the data only for `dryandra` is `TRUE` as we wanted to predict for dryandra woodland. And I will be removing data which is having missing values in `year` as that will be one of the feature for our data. I will be taking only those data which is not having any missing data in the combination of `prcp`, `tmax` and `tmin`.
+```{r input_output, message=FALSE}
+# Setting parameters
+seed <- 1               # seed for random number generation 
+numInstances <- nrow(big_stocks)  # number of data instances
 
-```{r data_wrangling, message=FALSE}
-new_numbats <- numbats |>
-  filter(!is.na(year) & !is.na(prcp) & !is.na(tmax) & !is.na(tmin))
+# Setting seed
+set.seed(seed)
 
-new_numbats |>
-  diagnose() |>
-  formattable()
+X <- big_stocks$open
+# adding noise to the data
+Y_true <- big_stocks$adj_close
+Y <- Y_true + matrix(rnorm(numInstances), ncol =1)
 ```
 
-We will be using this generated data to implement Regression analysis on top of it. And only *`Myrmecobius fasciatus`* is present in above data but its subspecies *`Myrmecobius fasciatus rufus`* is not present.
+Added noise to the `variable` above using a normal distribution.
 
-First we will be getting counts for specific years to implement **Multiple Linear Regression.**
-
-```{r get_counts, message=FALSE}
-year_grouped_data <- new_numbats |>
-  group_by(year) |>
-  summarise(count = n())
-```
-
-Plotting the data with a linear fit line using `ggplot`.
-
-Defining `X` and `Y`:
-
-```{r X_Y, message=FALSE}
-X <- year_grouped_data$year
-Y <- year_grouped_data$count
-```
-
-```{r linear_fit_plot, message=FALSE}
-# Plotting the data
-ggplot(year_grouped_data, 
-       aes(year, count),) +
+```{r linear_fit, message=FALSE}
+# Plotting Linear Fit 
+ggplot(big_stocks, aes(X, Y)) +
   geom_point(color = "black") +
-  geom_smooth(method = lm, se = FALSE, color = "red") +
+  geom_smooth(method = "lm",
+              color = "red",
+              linewidth = 1) +
   labs(
-    title = "Number of Nombats observed across years",
-    x = "Year",
-    y = "Number of Nombats"
-  ) +
-  scale_x_continuous(breaks = seq(min(year_grouped_data$year)-1, 
-                                  max(year_grouped_data$year),
-                                  by = 1)) +
-  theme(
-    panel.grid.minor = element_blank()
+    title = "Stock Price relationship between open and adjusted closing price",
+    x = "Open Price",
+    y = "Adjusted Closing Price"
   )
 ```
