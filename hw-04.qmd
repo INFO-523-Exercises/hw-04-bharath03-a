@@ -100,3 +100,142 @@ ggplot(big_stocks, aes(X, Y)) +
     y = "Adjusted Closing Price"
   )
 ```
+
+***Interpretation:***It can be interpreted that in most cases when ever there is raise in `open` price, `adj_close` is also experiencing a raise in it's price. Which can be determined as a linear relationship between `open` and `adj_close` based on the above plot.
+
+## Multiple Linear Regression
+
+Given the input dataset, the following steps are performed:
+
+1.  Split Input Data into Training and Test Sets
+2.  Fit Regression Model to Training Set
+3.  Apply Model to the Test Set
+4.  Evaluate Model Performance on Test Set
+5.  Post-processing: Visualizing the model fit
+
+### Step 1: Split Input Data into Training and Test Sets
+
+We have a total of `r numInstances`, so we will be using around `25000` records as training data and the rest as resting data.
+
+```{r split_input_data, message=FALSE}
+set.seed(123) # For reproducibility
+
+# defining train and test data
+numTrain <- 25000
+numTest <- numInstances - numTrain
+
+stocks_data <- tibble(X = X, Y = Y)
+
+split_stocks <- initial_split(stocks_data, prop = numTrain / numInstances)
+
+# separating train and test data
+train_stocks <- training(split_stocks)
+test_stocks <- testing(split_stocks)
+```
+
+We will be creating training set `X_train` and `Y_train` and testing set `X_test` and `Y_test`.
+
+```{r X_Y_TrainTest, message=FALSE}
+# separating X_train, X_test, Y_train, Y_test
+X_train <- train_stocks$X
+Y_train <- train_stocks$Y
+
+X_test <- test_stocks$X
+Y_test <- test_stocks$Y
+```
+
+### Step 2: Fit Regression Model to Training Set
+
+Using `linear_reg()` to create a linear regression model by setting `lm`.
+
+```{r linear_regression, message=FALSE}
+# creating a linear regression model specification
+lin_reg_spec <- linear_reg() |>
+  set_engine("lm")
+
+# fitting the model to the training data
+lin_reg_fit <- lin_reg_spec |>
+  fit(Y ~ X, data = train_stocks)
+```
+
+Fitting the data where our data is `train_stocks`, Y is `adj_close` and X is `open`.
+
+### Step 3: Apply Model to the Test Set
+
+Predicting the test data outcome using the linear regression fit in above section.
+
+```{r model_pred, message=FALSE}
+# applying model to the test set
+Y_pred_test <- predict(lin_reg_fit, new_data = test_stocks) |>
+  pull(.pred)
+```
+
+### Step 4: Evaluate Model Performance on Test Set
+
+Plotting the data to compare true and predicted values of test dataset.
+
+```{r model_pref_plot, message=FALSE}
+# Plotting true vs predicted values using ggplot
+ggplot() +
+  geom_point(aes(x = as.vector(Y_test), y = Y_pred_test), color = 'black') +
+  labs(
+    title = "Comparing true and predicted values for test set",
+    x = "True values for Y (adjusted closing price)",
+    y = "Predicted values for Y (adjusted closing price)"
+  )
+```
+
+***Interpretation:*** From the above scatter plot of `Y_test` which is true value of adjusted closing price and `Y_pred_test` which is the predicted value of adjusted closing price. We can observe that the model performed well as it is displaying a linear relationship between those two, which can be interpreted as the predicted value is closer to the true value.
+
+```{r linear_model_eval, message=FALSE}
+# preparing data for yardstick evaluation
+eval_data <- tibble(truth = as.vector(Y_test),
+                    estimate = Y_pred_test)
+
+# Model evaluation
+rmse_value <-
+  rmse(data = eval_data,
+       truth = truth,
+       estimate = estimate)
+r2_value <- rsq(eval_data, truth = truth, estimate = estimate)
+
+cat("Root mean squared error =",
+    sprintf("%.4f", rmse_value$.estimate),
+    "\n")
+
+cat('R-squared =', sprintf("%.4f", r2_value$.estimate), "\n")
+```
+
+***Interpretation:*** We can observe from the output that the `root mean squared error (RMSE)` of `10.6773`, from which we can understand that, on average the model's predictions show a deviation of 10.6773 from true values.\
+And the `R-squared` value of `0.9885` signifies that the model captures approximately `98.85%` of the variability in the response variable, reflecting good predictive accuracy.
+
+### Step 5: Post-processing: Visualizing the model fit
+
+```{r post_processing, message=FALSE}
+# displaying model parameters
+coef_values <- coef(lin_reg_fit$fit)  # extracting coefficients
+slope <- coef_values["X"]
+intercept <- coef_values["(Intercept)"]
+
+cat("Slope =", slope, "\n")
+
+cat("Intercept =", intercept, "\n")
+```
+
+***Interpretation:*** The `slope` of `0.9888` signifies the rate of change in the variable which we are predicting (`adj_close)` per increase in the variable which we are using for the prediction as a feature(`open`). The `intercept` of `-3.0146` is the estimated value of the `adj_close` when the `open` is zero. Together, these coefficients define the linear relationship of the model.
+
+```{r plotting_predicted, message=FALSE}
+# plotting outputs
+ggplot() +
+  geom_point(aes(x = as.vector(X_test), y = as.vector(Y_test)), color = 'black') +
+  geom_line(aes(x = as.vector(X_test), y = Y_pred_test),
+            color = 'blue',
+            linewidth = 1) +
+  labs(
+    title = sprintf('Predicted Function: y = %.2fX + %.2f', slope, intercept),
+    x = "X (opening price)",
+    y = "Y (adjusted closing price)"
+  )
+```
+
+***Interpretation:*** In this plot, data points are actual data points and blue line are predicted values. The line is used to represent the relationship between the opening and adjusted closing prices. We can understand that the relationship as a strong positive correlation between the opening(`open`) and adjusted closing(`adj_close`) prices.
