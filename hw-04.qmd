@@ -18,6 +18,9 @@ execute:
 Installing the packages used.
 
 ```{r r_packages, message = FALSE, output=FALSE}
+#| code-fold: true
+#| code-summary: "Packages and Theme Settings"
+
 # Required packages
 if (!require(pacman))
   install.packages("pacman")
@@ -32,7 +35,21 @@ pacman::p_load(tidymodels,
                gridExtra)
 
 # Global ggplot theme
-theme_set(theme_bw() + theme(legend.position = "top"))
+# setting theme for ggplot2
+ggplot2::theme_set(ggplot2::theme_minimal(base_size = 16, base_family = "sans"))
+
+# setting width of code output
+options(width = 65)
+
+# setting figure parameters for knitr
+knitr::opts_chunk$set(
+  fig.width = 8,        # 8" width
+  fig.asp = 0.65,       # the golden ratio
+  fig.retina = 1,       # dpi multiplier for displaying HTML output on retina
+  fig.align = "center", # center align figures
+  dpi = 150,            # higher dpi, sharper image
+  message = FALSE
+)
 ```
 
 ## Tidy Tuesday Dataset
@@ -54,7 +71,51 @@ numbats |>
 
 Out the presented variables we can see that we are having around `805` records in total for a total of `16` columns. Out of those columns like `prcp`, `tmax` and `tmin` seems to be non-existent as around 93% of their data is missing and we won't using those as our features considering the scope of this assignment. There are also other features which are having missing values but are having around 31% missing data which can be dealt with.
 
-```{r linear_fit_plot, message=FALSE}
-# plotting data with a linear fit
+Filtering the data only for `dryandra` is `TRUE` as we wanted to predict for dryandra woodland. And I will be removing data which is having missing values in `year` as that will be one of the feature for our data. I will be taking only those data which is not having any missing data in the combination of `prcp`, `tmax` and `tmin`.
 
+```{r data_wrangling, message=FALSE}
+new_numbats <- numbats |>
+  filter(!is.na(year) & !is.na(prcp) & !is.na(tmax) & !is.na(tmin))
+
+new_numbats |>
+  diagnose() |>
+  formattable()
+```
+
+We will be using this generated data to implement Regression analysis on top of it. And only *`Myrmecobius fasciatus`* is present in above data but its subspecies *`Myrmecobius fasciatus rufus`* is not present.
+
+First we will be getting counts for specific years to implement **Multiple Linear Regression.**
+
+```{r get_counts, message=FALSE}
+year_grouped_data <- new_numbats |>
+  group_by(year) |>
+  summarise(count = n())
+```
+
+Plotting the data with a linear fit line using `ggplot`.
+
+Defining `X` and `Y`:
+
+```{r X_Y, message=FALSE}
+X <- year_grouped_data$year
+Y <- year_grouped_data$count
+```
+
+```{r linear_fit_plot, message=FALSE}
+# Plotting the data
+ggplot(year_grouped_data, 
+       aes(year, count),) +
+  geom_point(color = "black") +
+  geom_smooth(method = lm, se = FALSE, color = "red") +
+  labs(
+    title = "Number of Nombats observed across years",
+    x = "Year",
+    y = "Number of Nombats"
+  ) +
+  scale_x_continuous(breaks = seq(min(year_grouped_data$year)-1, 
+                                  max(year_grouped_data$year),
+                                  by = 1)) +
+  theme(
+    panel.grid.minor = element_blank()
+  )
 ```
