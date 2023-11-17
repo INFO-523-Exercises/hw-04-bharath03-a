@@ -121,7 +121,7 @@ We have a total of `r numInstances`, so we will be using around `25000` records 
 set.seed(123) # For reproducibility
 
 # defining train and test data
-numTrain <- 25000
+numTrain <- 10000
 numTest <- numInstances - numTrain
 
 stocks_data <- tibble(X = X, Y = Y)
@@ -289,7 +289,7 @@ grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
 
 We can observe the same as the correlation matrix which is:
 
-We will be involving `open`, `high`, `close` and `low` as these are strongly correlated.
+We will be involving `open`, `high`, `close` and `low` as these are strongly correlated, even though `volume` is weakly correlated will be using it for predictions.
 
 ```{r train_test_data, message = FALSE}
 train_indices <- 1:(numInstances - numTest)
@@ -307,6 +307,11 @@ X_train4 <-
   cbind(X[train_indices], X2[train_indices], X3[train_indices], X4[train_indices])
 X_test4 <-
   cbind(X[test_indices], X2[test_indices], X3[test_indices], X4[test_indices])
+
+X_train5 <-
+  cbind(X[train_indices], X2[train_indices], X3[train_indices], X4[train_indices], X5[train_indices])
+X_test5 <-
+  cbind(X[test_indices], X2[test_indices], X3[test_indices], X4[test_indices], X5[test_indices])
 ```
 
 Below, we train 3 new regression models based on the 4 versions of training and test data created in the previous step.
@@ -330,6 +335,16 @@ train_data4 <-
     y = Y_train
   )
 
+train_data5 <-
+  tibble(
+    X1 = X_train5[, 1],
+    X2 = X_train5[, 2],
+    X3 = X_train5[, 3],
+    X4 = X_train5[, 4],
+    X5 = X_train5[, 5],
+    y = Y_train
+  )
+
 regr2_spec <- linear_reg() |> set_engine("lm")
 regr2_fit <- regr2_spec |> fit(y ~ X1 + X2, data = train_data2)
 
@@ -340,6 +355,10 @@ regr3_fit <-
 regr4_spec <- linear_reg() |> set_engine("lm")
 regr4_fit <-
   regr4_spec |> fit(y ~ X1 + X2 + X3 + X4, data = train_data4)
+
+regr5_spec <- linear_reg() |> set_engine("lm")
+regr5_fit <-
+  regr5_spec |> fit(y ~ X1 + X2 + X3 + X4 + X5, data = train_data5)
 ```
 
 All 3 versions of the regression models are then applied to the training and test sets.
@@ -358,6 +377,11 @@ new_train_data4 <-
 new_test_data4 <-
   setNames(as.data.frame(X_test4), c("X1", "X2", "X3", "X4"))
 
+new_train_data5 <-
+  setNames(as.data.frame(X_train5), c("X1", "X2", "X3", "X4", "X5"))
+new_test_data5 <-
+  setNames(as.data.frame(X_test5), c("X1", "X2", "X3", "X4", "X5"))
+
 y_pred_train2 <- predict(regr2_fit, new_data = new_train_data2)
 y_pred_test2 <- predict(regr2_fit, new_data = new_test_data2)
 
@@ -366,6 +390,9 @@ y_pred_test3 <- predict(regr3_fit, new_data = new_test_data3)
 
 y_pred_train4 <- predict(regr4_fit, new_data = new_train_data4)
 y_pred_test4 <- predict(regr4_fit, new_data = new_test_data4)
+
+y_pred_train5 <- predict(regr5_fit, new_data = new_train_data5)
+y_pred_test5 <- predict(regr5_fit, new_data = new_test_data5)
 ```
 
 For post-processing, we compute both the training and test errors of the models. We can also show the resulting model and the sum of the absolute weights of the regression coefficients, i.e., $\sum_{j=0}^d |w_j|$, where $d$ is the number of predictor attributes.
@@ -398,19 +425,29 @@ results <- tibble(
       get_coef(regr4_fit)['X2'],
       get_coef(regr4_fit)['X3'],
       get_coef(regr4_fit)['(Intercept)']
+    ),
+    sprintf(
+      "%.2f X + %.2f X2 + %.2f X3 + %.2f X4 + %.2f",
+      get_coef(regr5_fit)['X1'],
+      get_coef(regr5_fit)['X2'],
+      get_coef(regr5_fit)['X3'],
+      get_coef(regr5_fit)['X4'],
+      get_coef(regr5_fit)['(Intercept)']
     )
   ),
   
   Train_error = c(
     calculate_rmse(Y_train, y_pred_train2$.pred),
     calculate_rmse(Y_train, y_pred_train3$.pred),
-    calculate_rmse(Y_train, y_pred_train4$.pred)
+    calculate_rmse(Y_train, y_pred_train4$.pred),
+    calculate_rmse(Y_train, y_pred_train5$.pred)
   ),
   
   Test_error = c(
     calculate_rmse(Y_test, y_pred_test2$.pred),
     calculate_rmse(Y_test, y_pred_test3$.pred),
-    calculate_rmse(Y_test, y_pred_test4$.pred)
+    calculate_rmse(Y_test, y_pred_test4$.pred),
+    calculate_rmse(Y_test, y_pred_test5$.pred)
   ),
   
   Sum_of_Absolute_Weights = c(sum(abs(
@@ -421,6 +458,9 @@ results <- tibble(
   )),
   sum(abs(
     get_coef(regr4_fit)
+  )),
+  sum(abs(
+    get_coef(regr5_fit)
   )))
 )
 ```
@@ -433,4 +473,50 @@ ggplot(results, aes(x = Sum_of_Absolute_Weights)) +
   theme_minimal()
 
 results
+```
+
+## Ridge Regression
+
+```{r ridge_regression, message=FALSE}
+train_data <- tibble(y = Y_train, X_train5)
+test_data <- tibble(y = Y_test, X_test5)
+
+ridge_spec <- linear_reg(penalty = 0.4, mixture = 1) |>
+  set_engine("glmnet")
+
+ridge_fit <- ridge_spec |>
+  fit(y ~ ., data = train_data)
+
+y_pred_train_ridge <-
+  predict(ridge_fit, new_data = train_data)$.pred
+y_pred_test_ridge <- predict(ridge_fit, new_data = test_data)$.pred
+
+calculate_rmse <- function(actual, predicted) {
+  rmse <- sqrt(mean((actual - predicted) ^ 2))
+  rmse
+}
+
+ridge_coef <- coefficients(ridge_fit$fit)
+
+model6 <-
+  sprintf(
+    "%.2f X + %.2f X2 + %.2f X3 + %.2f X4 + %.2f X5 + %.2f",
+    ridge_coef[2],
+    ridge_coef[3],
+    ridge_coef[4],
+    ridge_coef[5],
+    ridge_coef[6],
+    ridge_coef[1]
+  )
+
+values6 <- tibble(
+  Model = model6,
+  Train_error = calculate_rmse(Y_train, y_pred_train_ridge),
+  Test_error = calculate_rmse(Y_test, y_pred_test_ridge),
+  Sum_of_Absolute_Weights = sum(abs(ridge_coef))
+)
+
+final_results <- bind_rows(results, values6)
+
+final_results
 ```
