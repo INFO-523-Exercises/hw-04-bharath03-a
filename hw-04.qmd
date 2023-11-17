@@ -239,3 +239,198 @@ ggplot() +
 ```
 
 ***Interpretation:*** In this plot, data points are actual data points and blue line are predicted values. The line is used to represent the relationship between the opening and adjusted closing prices. We can understand that the relationship as a strong positive correlation between the opening(`open`) and adjusted closing(`adj_close`) prices.
+
+## Effect of Correlated Attributes
+
+In this section, I will be introducing other attributes which might effect the `adj_close` price and use attributes that are strongly correlated with the previous variable X created. The association between X and Y remains consistent. Subsequently, we proceed to model Y in relation to the predictor variables and assess the training and test set errors for comparison.
+
+Getting correlation matrix to understand the correlation among the features.
+
+```{r get_correlation, message=FALSE}
+big_stocks |>
+  plot_correlate()
+```
+
+From the above above correlation matrix we can determine that `high`, `low`, `close`, `open`, `adj_close` are highly positively correlated. And `volume` seems to be not strongly correlated.
+
+```{r correla_attr, message = FALSE}
+set.seed(1)
+X2 <- big_stocks$high
+X3 <- big_stocks$low
+X4 <- big_stocks$close
+X5 <- big_stocks$volume
+
+plot1 <- ggplot() +
+  geom_point(aes(X, X2), color = 'black') +
+  xlab('Opening Price (X)') + ylab('Highest Price (X2)') +
+  ggtitle(sprintf("Correlation between open and high = %.4f", cor(X[-c((numInstances -
+                                                                     numTest + 1):numInstances)], X2[-c((numInstances - numTest + 1):numInstances)])))
+
+plot2 <- ggplot() +
+  geom_point(aes(X2, X3), color = 'black') +
+  xlab('Highest Price (X2)') + ylab('Lowest Price (X3)') +
+  ggtitle(sprintf("Correlation between high and low = %.4f", cor(X2[-c((numInstances -
+                                                                       numTest + 1):numInstances)], X3[-c((numInstances - numTest + 1):numInstances)])))
+
+plot3 <- ggplot() +
+  geom_point(aes(X3, X4), color = 'black') +
+  xlab('Lowest Price (X3)') + ylab('CLosest Price (X4)') +
+  ggtitle(sprintf("Correlation between low and close = %.4f", cor(X3[-c((numInstances -
+                                                                       numTest + 1):numInstances)], X4[-c((numInstances - numTest + 1):numInstances)])))
+
+plot4 <- ggplot() +
+  geom_point(aes(X4, X5), color='black') +
+  xlab('Closing price (X4)') + ylab('Volume (X5)') +
+  ggtitle(sprintf("Correlation between close and volume = %.4f", cor(X4[-c((numInstances-numTest+1):numInstances)], X5[-c((numInstances-numTest+1):numInstances)])))
+
+# combining plots into a 2x2 grid
+grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
+```
+
+We can observe the same as the correlation matrix which is:
+
+We will be involving `open`, `high`, `close` and `low` as these are strongly correlated.
+
+```{r train_test_data, message = FALSE}
+train_indices <- 1:(numInstances - numTest)
+test_indices <- (numInstances - numTest + 1):numInstances
+
+X_train2 <- cbind(X[train_indices], X2[train_indices])
+X_test2 <- cbind(X[test_indices], X2[test_indices])
+
+X_train3 <-
+  cbind(X[train_indices], X2[train_indices], X3[train_indices])
+X_test3 <-
+  cbind(X[test_indices], X2[test_indices], X3[test_indices])
+
+X_train4 <-
+  cbind(X[train_indices], X2[train_indices], X3[train_indices], X4[train_indices])
+X_test4 <-
+  cbind(X[test_indices], X2[test_indices], X3[test_indices], X4[test_indices])
+```
+
+Below, we train 3 new regression models based on the 4 versions of training and test data created in the previous step.
+
+```{r test_reggression, message = FALSE}
+train_data2 <-
+  tibble(X1 = X_train2[, 1], X2 = X_train2[, 2], y = Y_train)
+
+train_data3 <-
+  tibble(X1 = X_train3[, 1],
+         X2 = X_train3[, 2],
+         X3 = X_train3[, 3],
+         y = Y_train)
+
+train_data4 <-
+  tibble(
+    X1 = X_train4[, 1],
+    X2 = X_train4[, 2],
+    X3 = X_train4[, 3],
+    X4 = X_train4[, 4],
+    y = Y_train
+  )
+
+regr2_spec <- linear_reg() |> set_engine("lm")
+regr2_fit <- regr2_spec |> fit(y ~ X1 + X2, data = train_data2)
+
+regr3_spec <- linear_reg() |> set_engine("lm")
+regr3_fit <-
+  regr3_spec |> fit(y ~ X1 + X2 + X3, data = train_data3)
+
+regr4_spec <- linear_reg() |> set_engine("lm")
+regr4_fit <-
+  regr4_spec |> fit(y ~ X1 + X2 + X3 + X4, data = train_data4)
+```
+
+All 3 versions of the regression models are then applied to the training and test sets.
+
+```{r new_data_pred, message = FALSE}
+new_train_data2 <- setNames(as.data.frame(X_train2), c("X1", "X2"))
+new_test_data2 <- setNames(as.data.frame(X_test2), c("X1", "X2"))
+
+new_train_data3 <-
+  setNames(as.data.frame(X_train3), c("X1", "X2", "X3"))
+new_test_data3 <-
+  setNames(as.data.frame(X_test3), c("X1", "X2", "X3"))
+
+new_train_data4 <-
+  setNames(as.data.frame(X_train4), c("X1", "X2", "X3", "X4"))
+new_test_data4 <-
+  setNames(as.data.frame(X_test4), c("X1", "X2", "X3", "X4"))
+
+y_pred_train2 <- predict(regr2_fit, new_data = new_train_data2)
+y_pred_test2 <- predict(regr2_fit, new_data = new_test_data2)
+
+y_pred_train3 <- predict(regr3_fit, new_data = new_train_data3)
+y_pred_test3 <- predict(regr3_fit, new_data = new_test_data3)
+
+y_pred_train4 <- predict(regr4_fit, new_data = new_train_data4)
+y_pred_test4 <- predict(regr4_fit, new_data = new_test_data4)
+```
+
+For post-processing, we compute both the training and test errors of the models. We can also show the resulting model and the sum of the absolute weights of the regression coefficients, i.e., $\sum_{j=0}^d |w_j|$, where $d$ is the number of predictor attributes.
+
+```{r coef_functions, message=FALSE}
+get_coef <- function(model) {
+  coef <- coefficients(model$fit)
+  coef
+}
+
+calculate_rmse <- function(actual, predicted) {
+  rmse <- sqrt(mean((actual - predicted) ^ 2))
+  rmse
+}
+```
+
+```{r results_regression, message=FALSE}
+results <- tibble(
+  Model = c(
+    sprintf("%.2f X + %.2f", get_coef(regr2_fit)['X1'], get_coef(regr2_fit)['(Intercept)']),
+    sprintf(
+      "%.2f X + %.2f X2 + %.2f",
+      get_coef(regr3_fit)['X1'],
+      get_coef(regr3_fit)['X2'],
+      get_coef(regr3_fit)['(Intercept)']
+    ),
+    sprintf(
+      "%.2f X + %.2f X2 + %.2f X3 + %.2f",
+      get_coef(regr4_fit)['X1'],
+      get_coef(regr4_fit)['X2'],
+      get_coef(regr4_fit)['X3'],
+      get_coef(regr4_fit)['(Intercept)']
+    )
+  ),
+  
+  Train_error = c(
+    calculate_rmse(Y_train, y_pred_train2$.pred),
+    calculate_rmse(Y_train, y_pred_train3$.pred),
+    calculate_rmse(Y_train, y_pred_train4$.pred)
+  ),
+  
+  Test_error = c(
+    calculate_rmse(Y_test, y_pred_test2$.pred),
+    calculate_rmse(Y_test, y_pred_test3$.pred),
+    calculate_rmse(Y_test, y_pred_test4$.pred)
+  ),
+  
+  Sum_of_Absolute_Weights = c(sum(abs(
+    get_coef(regr2_fit)
+  )),
+  sum(abs(
+    get_coef(regr3_fit)
+  )),
+  sum(abs(
+    get_coef(regr4_fit)
+  )))
+)
+```
+
+```{r plot_results_regr, message=FALSE}
+ggplot(results, aes(x = Sum_of_Absolute_Weights)) +
+  geom_line(aes(y = Train_error, color = "Train error"), linetype = "solid") +
+  geom_line(aes(y = Test_error, color = "Test error"), linetype = "dashed") +
+  labs(x = "Sum of Absolute Weights", y = "Error rate") +
+  theme_minimal()
+
+results
+```
