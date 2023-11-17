@@ -2,8 +2,8 @@
 title: "Regression in R"
 description: "Basic Concepts Regression Techniques"
 author: "Bharath Velamala"
-format: 
-    html:
+format:
+  html:
       theme: yeti
 editor: visual
 toc: true
@@ -58,7 +58,7 @@ I have selected the data [Big Stock Prices](https://github.com/rfordatascience/t
 
 **How do daily opening prices, trading volumes, and historical trends influence the adjusted closing prices of stocks?**
 
-```{r nombats_dataset, message=FALSE}
+```{r stocks_dataset, message=FALSE}
 big_stocks <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-02-07/big_tech_stock_prices.csv')
 
 # converting the data to tibble
@@ -289,6 +289,9 @@ grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
 
 We can observe the same as the correlation matrix which is:
 
+-   All `open`, `high`, `close`, `adj_close` and `low` are having a strong positive correlation.
+-   Where as `volume` is having weak negative correlation with rest of the features, which means when ever there is increase in `open`, `high`, `close`, `adj_close` or `low` then `volume` may decrease.
+
 We will be involving `open`, `high`, `close` and `low` as these are strongly correlated, even though `volume` is weakly correlated will be using it for predictions.
 
 ```{r train_test_data, message = FALSE}
@@ -314,7 +317,9 @@ X_test5 <-
   cbind(X[test_indices], X2[test_indices], X3[test_indices], X4[test_indices], X5[test_indices])
 ```
 
-Below, we train 3 new regression models based on the 4 versions of training and test data created in the previous step.
+We generated different training and testing data with different scenarios including different combinations of features.
+
+Following the previous step, we proceed to train four new regression models, each corresponding to one of the four versions of training and test data that were generated earlier.
 
 ```{r test_reggression, message = FALSE}
 train_data2 <-
@@ -361,7 +366,9 @@ regr5_fit <-
   regr5_spec |> fit(y ~ X1 + X2 + X3 + X4 + X5, data = train_data5)
 ```
 
-All 3 versions of the regression models are then applied to the training and test sets.
+We are fitting the linear regression model with increasing combinations of features to assess the performance.
+
+Subsequently, all four iterations of the regression models are employed on both the training and test sets.
 
 ```{r new_data_pred, message = FALSE}
 new_train_data2 <- setNames(as.data.frame(X_train2), c("X1", "X2"))
@@ -395,7 +402,7 @@ y_pred_train5 <- predict(regr5_fit, new_data = new_train_data5)
 y_pred_test5 <- predict(regr5_fit, new_data = new_test_data5)
 ```
 
-For post-processing, we compute both the training and test errors of the models. We can also show the resulting model and the sum of the absolute weights of the regression coefficients, i.e., $\sum_{j=0}^d |w_j|$, where $d$ is the number of predictor attributes.
+Predicting the results of both training and testing data for the respective combinations of features.
 
 ```{r coef_functions, message=FALSE}
 get_coef <- function(model) {
@@ -408,6 +415,8 @@ calculate_rmse <- function(actual, predicted) {
   rmse
 }
 ```
+
+Created two functions to get model's co-efficient and calculate root mean squared error(rmse).
 
 ```{r results_regression, message=FALSE}
 results <- tibble(
@@ -465,6 +474,8 @@ results <- tibble(
 )
 ```
 
+Generating plot for `Test error` and `Train error` for the models.
+
 ```{r plot_results_regr, message=FALSE}
 ggplot(results, aes(x = Sum_of_Absolute_Weights)) +
   geom_line(aes(y = Train_error, color = "Train error"), linetype = "solid") +
@@ -472,10 +483,19 @@ ggplot(results, aes(x = Sum_of_Absolute_Weights)) +
   labs(x = "Sum of Absolute Weights", y = "Error rate") +
   theme_minimal()
 
-results
+results |>
+  formattable()
 ```
 
+***Interpretation:*** The `Train error` remains relatively flat with slight decrease, indicating that the error rate on the test set does not change significantly as the sum of absolute weights increases, but it has decreased slightly. On the other hand, the `Test error` shows a decreasing trend and increasing trend after. This suggests that as the sum of absolute weights increases, the error rate on the testing set decreases and increases after.
+
+The slightly decreasing training error might suggest that the model is fitting the training data better with increasing complexity. However, since the test error remains constant after decreasing and increasing as sum of absolute weights increase, it could also indicate a potential over-fitting scenario where the model is not generalizing well to unseen data.
+
+In this instance, First Model has the lowest sum of absolute weights , signifying the simplest model in terms of feature weights. Additionally, Second Model demonstrates the lowest test error.
+
 ## Ridge Regression
+
+Ridge Regression is employed as a technique for model tuning, addressing the issue of multicollinearity among independent variables.
 
 ```{r ridge_regression, message=FALSE}
 train_data <- tibble(y = Y_train, X_train5)
@@ -518,10 +538,15 @@ values6 <- tibble(
 
 final_results <- bind_rows(results, values6)
 
-final_results
+final_results |>
+  formattable()
 ```
 
+***Interpretation:*** From the above result we can understand that the higher order model is having less `Test error`. The notable decrease in test error observed in the final model, in contrast to the earlier ones, implies that ridge regression has successfully enhanced the model's capacity to generalize, mitigating over-fitting. The rise in the sum of absolute weights suggests that the model now places more emphasis on its predictors, likely a result of ridge regression's regularization effect. This trade-off between the improvement in test error and the increase in weight sum sums up the impact of ridge regression on model performance.
+
 ## Lasso Regression
+
+Lasso regression, a form of regularization, employs shrinkage to pull data values toward a central point, often the mean. This technique, a variant of linear regression, integrates both feature selection and regularization, earning it the alternative name of the Penalized regression method.
 
 ```{r lasso_reggression_training, message=FALSE}
 lasso_spec <- linear_reg(penalty = 0.02, mixture = 1) |>
@@ -543,6 +568,8 @@ lasso_fit <- lasso_spec |>
 lasso_coefs <- lasso_fit$fit$beta[, 1]
 lasso_coefs
 ```
+
+All co-efficients are `0` for the higher model with 5 features which simplifies the model.
 
 ```{r lasso_reg_pred, message=FALSE}
 y_pred_train_lasso <-
@@ -588,8 +615,11 @@ lasso_results <- tibble(
   `Sum of Absolute Weights` = values7[4]
 )
 
-lasso_results
+lasso_results |>
+  formattable()
 ```
+
+**Interpretation:** Lasso regression model has a training error of approximately `101.36`, a test error of approximately `101.01`, and a sum of absolute weights around `86.07`. The lower sum of absolute weights suggests that Lasso is likely performing feature selection by pushing some coefficients to exactly zero, thereby simplifying the model.
 
 ## Hyper-parameter Selection via Cross-Validation
 
@@ -660,8 +690,11 @@ ridge_results <- tibble(Model = "RidgeCV",
 cat("Selected alpha =", best_params$penalty, "\n")
 
 all_results <- bind_rows(results, ridge_results)
-all_results
+all_results |>
+  formattable()
 ```
+
+***Interpretation:*** For the `RidgeCV` model which is with hyper-parameters testing error has decrease but not significantly with Sum of Absolute Weights also being decreased when compared to other models. This suggests a well-balanced model complexity, attributed to the regularization effect of ridge regression at the specified alpha level.
 
 ### Fitting a lasso regression model by selecting the best hyper-parameter value
 
@@ -729,5 +762,8 @@ lasso_results <- tibble(Model = "LassoCV",
 
 cat("Selected alpha for Lasso =", best_params_lasso$penalty, "\n")
 
-lasso_results
+lasso_results |>
+  formattable()
 ```
+
+***Interpretation:*** For the same Sum of Absolute Weights which around `86.065` the test error is slightly lesser compared to earlier `RidgeCV` model. The `lassoCV` model\`s test error and Sum of Absolute Weights are similar to earlier lasso regression implementation. It did not significantly alter its predictive performance compared to the initial model. The errors on both the training and test datasets remained relatively consistent.
